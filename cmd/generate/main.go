@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -13,13 +14,28 @@ import (
 )
 
 const (
-	inputPath      = "表格格式/1103/input.xlsx"
-	mapPath        = "map.xlsx"
-	outputPath     = "result.excel"
 	logisticsBrand = "First Logistics"
 	orderPlatform  = "SHOPIFY"
 	outboundType   = "销售出库"
+	defaultMapPath = "map.xlsx"
+	mapPathEnvVar  = "MAP_PATH"
+	resultFileName = "result.xlsx"
 )
+
+var (
+	packageDir string
+	repoRoot   string
+)
+
+func init() {
+	if _, file, _, ok := runtime.Caller(0); ok {
+		packageDir = filepath.Dir(file)
+		repoRoot = filepath.Clean(filepath.Join(packageDir, "..", ".."))
+	} else {
+		packageDir = "."
+		repoRoot = "."
+	}
+}
 
 type outputRow struct {
 	Tracking         string
@@ -28,35 +44,51 @@ type outputRow struct {
 	Quantity         int
 	CustomerRef      string
 	Country          string
+	HasTracking      bool
 }
 
 func main() {
-	if err := run(); err != nil {
+	if len(os.Args) != 2 {
+		log.Fatalf("usage: %s <path/to/input.xlsx>", filepath.Base(os.Args[0]))
+	}
+	outputPath, count, err := Generate(os.Args[1])
+	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Printf("Created %s with %d rows\n", outputPath, count)
 }
 
-func run() error {
+// Generate builds the result.xlsx file next to the provided input workbook.
+func Generate(inputPath string) (string, int, error) {
+	if inputPath == "" {
+		return "", 0, errors.New("input path is required")
+	}
+
+	mapPath, err := resolveMapPath(inputPath)
+	if err != nil {
+		return "", 0, err
+	}
+
 	skuMap, err := loadMapping(mapPath)
 	if err != nil {
-		return fmt.Errorf("load sku map: %w", err)
+		return "", 0, fmt.Errorf("load sku map: %w", err)
 	}
 
 	rows, err := buildRows(inputPath, skuMap)
 	if err != nil {
-		return fmt.Errorf("prepare rows: %w", err)
+		return "", 0, fmt.Errorf("prepare rows: %w", err)
 	}
 
+	outputPath := filepath.Join(filepath.Dir(inputPath), resultFileName)
 	if err := writeOutput(rows, outputPath); err != nil {
-		return fmt.Errorf("write workbook: %w", err)
+		return "", 0, fmt.Errorf("write workbook: %w", err)
 	}
 
 	abs, err := filepath.Abs(outputPath)
-	if err != nil {
-		return nil
+	if err == nil {
+		outputPath = abs
 	}
-	fmt.Printf("Created %s with %d rows\n", abs, len(rows))
-	return nil
+	return outputPath, len(rows), nil
 }
 
 func loadMapping(path string) (map[string]string, error) {
@@ -129,21 +161,15 @@ func buildRows(path string, skuMap map[string]string) ([]outputRow, error) {
 		tracking := get(4)
 		country := get(5)
 
-		if sku == "" && tracking == "" {
+		if sku == "" {
 			continue
 		}
-		if orderID == "" {
-			return nil, fmt.Errorf("row %d: missing platform order number in column A", i+1)
-		}
-		if sku == "" {
-			return nil, fmt.Errorf("row %d: missing SKU in column B", i+1)
-		}
-		if tracking == "" {
-			return nil, fmt.Errorf("row %d: missing tracking number in column E", i+1)
+		if qtyStr == "" {
+			continue
 		}
 		code, ok := skuMap[sku]
 		if !ok {
-			return nil, fmt.Errorf("row %d: sku %q not found in %s", i+1, sku, mapPath)
+			return nil, fmt.Errorf("row %d: sku %q not found in mapping", i+1, sku)
 		}
 		qty, err := strconv.Atoi(qtyStr)
 		if err != nil {
@@ -156,6 +182,7 @@ func buildRows(path string, skuMap map[string]string) ([]outputRow, error) {
 			Quantity:         qty,
 			CustomerRef:      orderID,
 			Country:          country,
+			HasTracking:      tracking != "",
 		})
 	}
 	return result, nil
@@ -173,45 +200,38 @@ func writeOutput(rows []outputRow, path string) error {
 
 	for i, row := range rows {
 		values := []interface{}{
-			outboundType,
+			"", // 出库类型
 			row.Tracking,
-			logisticsBrand,
-			row.LogisticsChannel,
+			"", // 物流公司
+			"", // 物流渠道
 			row.SKUCode,
 			row.Quantity,
-			orderPlatform,
-			row.CustomerRef,
+			"", // 订单平台
+			"", // 客户参考单号
 			"",
 			"",
 			"",
 			"",
-			row.Country,
+			"",
 		}
+		if row.HasTracking {
+			values[0] = outboundType
+			values[2] = logisticsBrand
+			values[3] = row.LogisticsChannel
+			values[6] = orderPlatform
+			values[7] = row.CustomerRef
+			values[12] = row.Country
+		}
+
 		cell := fmt.Sprintf("A%d", i+2)
 		if err := f.SetSheetRow(sheet, cell, &values); err != nil {
 			return fmt.Errorf("set row %d: %w", i+2, err)
 		}
 	}
 
-	savePath := path
-	renameTo := ""
-	if !strings.EqualFold(filepath.Ext(path), ".xlsx") {
-		savePath = path + ".tmp.xlsx"
-		renameTo = path
-	}
-
-	if err := f.SaveAs(savePath); err != nil {
+	if err := f.SaveAs(path); err != nil {
 		return err
 	}
-	if renameTo != "" {
-		if err := os.Remove(renameTo); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("remove stale %s: %w", renameTo, err)
-		}
-		if err := os.Rename(savePath, renameTo); err != nil {
-			return fmt.Errorf("rename %s to %s: %w", savePath, renameTo, err)
-		}
-	}
-
 	return nil
 }
 
@@ -225,4 +245,51 @@ func extractChannel(method string) string {
 		return strings.TrimSpace(parts[1])
 	}
 	return method
+}
+
+func resolveMapPath(inputPath string) (string, error) {
+	candidates := []string{}
+	if envPath := os.Getenv(mapPathEnvVar); envPath != "" {
+		candidates = append(candidates, envPath)
+	}
+	candidates = append(candidates, defaultMapPath)
+
+	inputDir := filepath.Dir(inputPath)
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		path := candidate
+		if !filepath.IsAbs(path) {
+			path = filepath.Clean(path)
+		}
+		if infoPath, err := existingPath(path); err == nil {
+			return infoPath, nil
+		}
+		// try relative to input directory
+		if !filepath.IsAbs(candidate) {
+			alt := filepath.Join(inputDir, filepath.Base(candidate))
+			if infoPath, err := existingPath(alt); err == nil {
+				return infoPath, nil
+			}
+			if repoRoot != "" {
+				rootPath := filepath.Join(repoRoot, candidate)
+				if infoPath, err := existingPath(rootPath); err == nil {
+					return infoPath, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("map.xlsx not found (checked %s)", strings.Join(candidates, ", "))
+}
+
+func existingPath(path string) (string, error) {
+	if _, err := os.Stat(path); err != nil {
+		return "", err
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return path, nil
+	}
+	return abs, nil
 }
