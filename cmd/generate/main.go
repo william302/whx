@@ -1,12 +1,13 @@
 package main
 
 import (
+	"bytes"
+	_ "embed"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -17,25 +18,11 @@ const (
 	logisticsBrand = "First Logistics"
 	orderPlatform  = "SHOPIFY"
 	outboundType   = "销售出库"
-	defaultMapPath = "map.xlsx"
-	mapPathEnvVar  = "MAP_PATH"
 	resultFileName = "result.xlsx"
 )
 
-var (
-	packageDir string
-	repoRoot   string
-)
-
-func init() {
-	if _, file, _, ok := runtime.Caller(0); ok {
-		packageDir = filepath.Dir(file)
-		repoRoot = filepath.Clean(filepath.Join(packageDir, "..", ".."))
-	} else {
-		packageDir = "."
-		repoRoot = "."
-	}
-}
+//go:embed map.xlsx
+var embeddedMap []byte
 
 type outputRow struct {
 	Tracking         string
@@ -64,12 +51,7 @@ func Generate(inputPath string) (string, int, error) {
 		return "", 0, errors.New("input path is required")
 	}
 
-	mapPath, err := resolveMapPath(inputPath)
-	if err != nil {
-		return "", 0, err
-	}
-
-	skuMap, err := loadMapping(mapPath)
+	skuMap, err := loadMapping()
 	if err != nil {
 		return "", 0, fmt.Errorf("load sku map: %w", err)
 	}
@@ -91,8 +73,11 @@ func Generate(inputPath string) (string, int, error) {
 	return outputPath, len(rows), nil
 }
 
-func loadMapping(path string) (map[string]string, error) {
-	f, err := excelize.OpenFile(path)
+func loadMapping() (map[string]string, error) {
+	if len(embeddedMap) == 0 {
+		return nil, errors.New("embedded map.xlsx is empty")
+	}
+	f, err := excelize.OpenReader(bytes.NewReader(embeddedMap))
 	if err != nil {
 		return nil, err
 	}
@@ -245,51 +230,4 @@ func extractChannel(method string) string {
 		return strings.TrimSpace(parts[1])
 	}
 	return method
-}
-
-func resolveMapPath(inputPath string) (string, error) {
-	candidates := []string{}
-	if envPath := os.Getenv(mapPathEnvVar); envPath != "" {
-		candidates = append(candidates, envPath)
-	}
-	candidates = append(candidates, defaultMapPath)
-
-	inputDir := filepath.Dir(inputPath)
-	for _, candidate := range candidates {
-		if candidate == "" {
-			continue
-		}
-		path := candidate
-		if !filepath.IsAbs(path) {
-			path = filepath.Clean(path)
-		}
-		if infoPath, err := existingPath(path); err == nil {
-			return infoPath, nil
-		}
-		// try relative to input directory
-		if !filepath.IsAbs(candidate) {
-			alt := filepath.Join(inputDir, filepath.Base(candidate))
-			if infoPath, err := existingPath(alt); err == nil {
-				return infoPath, nil
-			}
-			if repoRoot != "" {
-				rootPath := filepath.Join(repoRoot, candidate)
-				if infoPath, err := existingPath(rootPath); err == nil {
-					return infoPath, nil
-				}
-			}
-		}
-	}
-	return "", fmt.Errorf("map.xlsx not found (checked %s)", strings.Join(candidates, ", "))
-}
-
-func existingPath(path string) (string, error) {
-	if _, err := os.Stat(path); err != nil {
-		return "", err
-	}
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return path, nil
-	}
-	return abs, nil
 }
