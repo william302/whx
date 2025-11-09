@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -14,33 +15,23 @@ import (
 
 func TestGenerateFixtures(t *testing.T) {
 	root := testRepoRoot(t)
-	testCases := []struct {
-		name   string
-		subdir string
-	}{
-		{
-			name:   "1008",
-			subdir: filepath.Join("表格格式", "1008"),
-		},
-		{
-			name:   "1103",
-			subdir: filepath.Join("表格格式", "1103"),
-		},
+	fixtures, err := discoverFixtures(root)
+	if err != nil {
+		t.Fatalf("discover fixtures: %v", err)
+	}
+	if len(fixtures) == 0 {
+		t.Fatal("no fixtures found")
 	}
 
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
+	for _, fx := range fixtures {
+		fx := fx
+		t.Run(fx.Name, func(t *testing.T) {
 			t.Parallel()
 
-			inputPath := filepath.Join(root, tc.subdir, "input.xlsx")
-			expectedPath := filepath.Join(root, tc.subdir, "output.xlsx")
-			resultPath := filepath.Join(filepath.Dir(inputPath), "result.xlsx")
-			t.Cleanup(func() {
-				_ = os.Remove(resultPath)
-			})
+			resultPath := filepath.Join(filepath.Dir(fx.InputPath), "result.xlsx")
+			t.Cleanup(func() { _ = os.Remove(resultPath) })
 
-			gotPath, _, err := Generate(inputPath)
+			gotPath, _, err := Generate(fx.InputPath)
 			if err != nil {
 				t.Fatalf("Generate() error = %v", err)
 			}
@@ -52,7 +43,7 @@ func TestGenerateFixtures(t *testing.T) {
 				t.Fatalf("expected result at %s, got %s", expectedAbs, gotPath)
 			}
 
-			compareWorkbooks(t, expectedPath, gotPath)
+			compareWorkbooks(t, fx.ExpectedPath, gotPath)
 		})
 	}
 }
@@ -132,4 +123,45 @@ func testRepoRoot(t *testing.T) string {
 		t.Fatal("unable to determine caller info")
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+}
+
+type fixture struct {
+	Name         string
+	InputPath    string
+	ExpectedPath string
+}
+
+func discoverFixtures(root string) ([]fixture, error) {
+	base := filepath.Join(root, "表格格式")
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		return nil, err
+	}
+
+	var fixtures []fixture
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		dir := filepath.Join(base, entry.Name())
+		input := filepath.Join(dir, "input.xlsx")
+		output := filepath.Join(dir, "output.xlsx")
+		if fileExists(input) && fileExists(output) {
+			fixtures = append(fixtures, fixture{
+				Name:         entry.Name(),
+				InputPath:    input,
+				ExpectedPath: output,
+			})
+		}
+	}
+
+	sort.Slice(fixtures, func(i, j int) bool {
+		return fixtures[i].Name < fixtures[j].Name
+	})
+	return fixtures, nil
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
