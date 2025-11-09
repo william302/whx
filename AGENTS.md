@@ -6,9 +6,9 @@
 - `.gocache/` is used to store the Go build cache locally; keep it out of version control.
 
 ## Build, Test, and Development Commands
-- `GOCACHE=$(pwd)/.gocache go run ./cmd/generate <path/to/input.xlsx>` generates `result.xlsx` next to the provided workbook.
-- `GOCACHE=$(pwd)/.gocache go test ./cmd/generate` or `./...` runs unit tests across all packages using the local cache (avoids permission issues).
-- `gofmt -w cmd/generate/*.go` keeps Go sources formatted; run this before committing.
+- `make run INPUT=examples/1103/input.xlsx` builds and executes the generator with the embedded mapping, writing `result.xlsx` beside the input file.
+- `make test` runs `go test ./...` using the repo-local `.gocache`, ensuring cache writes succeed inside the sandbox.
+- `make fmt` applies `gofmt -w cmd/generate/*.go`; run this before committing code changes.
 
 ## Coding Style & Naming Conventions
 - Go 1.24+; use standard Go formatting (`gofmt`), camelCase for locals, PascalCase for exported identifiers.
@@ -18,7 +18,7 @@
 ## Testing Guidelines
 - Tests live beside code (`cmd/generate/main_test.go`) and rely on fixtures under `examples/`.
 - Add a new fixture by creating `examples/<name>/input.xlsx` and `output.xlsx`; the discovery helper will include it automatically.
-- When debugging, you may keep the generated `result.xlsx` for inspection—tests no longer delete it.
+- When debugging, you may keep the generated `result.xlsx` for inspection—tests no longer delete it. Use `make test` for consistency.
 
 ## Commit & Pull Request Guidelines
 - Write concise commit messages in the form `component: summary` (e.g., `generate: embed mapping file`).
