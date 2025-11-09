@@ -13,9 +13,11 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+const fixturesDir = "examples"
+
 func TestGenerateFixtures(t *testing.T) {
 	root := testRepoRoot(t)
-	fixtures, err := discoverFixtures(root)
+	fixtures, err := discoverFixtures(filepath.Join(root, fixturesDir))
 	if err != nil {
 		t.Fatalf("discover fixtures: %v", err)
 	}
@@ -29,8 +31,6 @@ func TestGenerateFixtures(t *testing.T) {
 			t.Parallel()
 
 			resultPath := filepath.Join(filepath.Dir(fx.InputPath), "result.xlsx")
-			t.Cleanup(func() { _ = os.Remove(resultPath) })
-
 			gotPath, _, err := Generate(fx.InputPath)
 			if err != nil {
 				t.Fatalf("Generate() error = %v", err)
@@ -131,8 +131,7 @@ type fixture struct {
 	ExpectedPath string
 }
 
-func discoverFixtures(root string) ([]fixture, error) {
-	base := filepath.Join(root, "表格格式")
+func discoverFixtures(base string) ([]fixture, error) {
 	entries, err := os.ReadDir(base)
 	if err != nil {
 		return nil, err
