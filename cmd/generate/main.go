@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -18,7 +19,8 @@ const (
 	logisticsBrand = "First Logistics"
 	orderPlatform  = "SHOPIFY"
 	outboundType   = "销售出库"
-	resultFileName = "result.xlsx"
+	outputPrefix   = "Warehouse_"
+	versionString  = "0.1.0"
 )
 
 //go:embed map.xlsx
@@ -35,10 +37,24 @@ type outputRow struct {
 }
 
 func main() {
-	if len(os.Args) != 2 {
-		log.Fatalf("usage: %s <path/to/input.xlsx>", filepath.Base(os.Args[0]))
+	showVersion := flag.Bool("version", false, "print version and exit")
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [--version] <path/to/input.xlsx>\n", filepath.Base(os.Args[0]))
+		flag.PrintDefaults()
 	}
-	outputPath, count, err := Generate(os.Args[1])
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(versionString)
+		return
+	}
+
+	if flag.NArg() != 1 {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	outputPath, count, err := Generate(flag.Arg(0))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -61,7 +77,8 @@ func Generate(inputPath string) (string, int, error) {
 		return "", 0, fmt.Errorf("prepare rows: %w", err)
 	}
 
-	outputPath := filepath.Join(filepath.Dir(inputPath), resultFileName)
+	outputName := outputPrefix + filepath.Base(inputPath)
+	outputPath := filepath.Join(filepath.Dir(inputPath), outputName)
 	if err := writeOutput(rows, outputPath); err != nil {
 		return "", 0, fmt.Errorf("write workbook: %w", err)
 	}

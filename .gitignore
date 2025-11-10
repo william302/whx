@@ -1,4 +1,5 @@
 .gocache/
 .DS_Store
 examples/*/result.xlsx
+examples/*/Warehouse_*.xlsx
 **/~$*.xlsx

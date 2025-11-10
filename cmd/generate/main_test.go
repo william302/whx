@@ -30,7 +30,7 @@ func TestGenerateFixtures(t *testing.T) {
 		t.Run(fx.Name, func(t *testing.T) {
 			t.Parallel()
 
-			resultPath := filepath.Join(filepath.Dir(fx.InputPath), "result.xlsx")
+			resultPath := filepath.Join(filepath.Dir(fx.InputPath), "Warehouse_"+filepath.Base(fx.InputPath))
 			gotPath, _, err := Generate(fx.InputPath)
 			if err != nil {
 				t.Fatalf("Generate() error = %v", err)
