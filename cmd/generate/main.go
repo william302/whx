@@ -145,23 +145,32 @@ func buildRows(path string, skuMap map[string]string) ([]outputRow, error) {
 		return nil, err
 	}
 
+	cols, err := detectColumns(rows)
+	if err != nil {
+		return nil, err
+	}
+
 	var result []outputRow
+	lastCountry := make(map[string]string)
 	for i, row := range rows {
 		if i == 0 {
 			continue // skip header
 		}
 		get := func(idx int) string {
-			if idx >= len(row) {
+			if idx < 0 || idx >= len(row) {
 				return ""
 			}
 			return strings.TrimSpace(row[idx])
 		}
-		orderID := get(0)
-		sku := get(1)
-		qtyStr := get(2)
-		method := get(3)
-		tracking := get(4)
-		country := get(5)
+		orderID := get(cols.order)
+		sku := get(cols.sku)
+		qtyStr := get(cols.qty)
+		method := get(cols.method)
+		tracking := get(cols.tracking)
+		country := get(cols.country)
+		if country == "" && orderID != "" {
+			country = lastCountry[orderID]
+		}
 
 		if sku == "" {
 			continue
@@ -177,6 +186,9 @@ func buildRows(path string, skuMap map[string]string) ([]outputRow, error) {
 		if err != nil {
 			return nil, fmt.Errorf("row %d: invalid quantity %q: %w", i+1, qtyStr, err)
 		}
+		if country != "" && orderID != "" {
+			lastCountry[orderID] = country
+		}
 		result = append(result, outputRow{
 			Tracking:         tracking,
 			LogisticsChannel: extractChannel(method),
@@ -188,6 +200,42 @@ func buildRows(path string, skuMap map[string]string) ([]outputRow, error) {
 		})
 	}
 	return result, nil
+}
+
+type columnIndexes struct {
+	order    int
+	sku      int
+	qty      int
+	method   int
+	tracking int
+	country  int
+}
+
+func detectColumns(rows [][]string) (columnIndexes, error) {
+	if len(rows) == 0 {
+		return columnIndexes{}, errors.New("input workbook has no rows")
+	}
+	header := rows[0]
+	find := func(name string) int {
+		for i, cell := range header {
+			if strings.TrimSpace(cell) == name {
+				return i
+			}
+		}
+		return -1
+	}
+	cols := columnIndexes{
+		order:    find("平台单号"),
+		sku:      find("SKU"),
+		qty:      find("数量"),
+		method:   find("物流方式"),
+		tracking: find("运单号"),
+		country:  find("国家/地区"),
+	}
+	if cols.order < 0 || cols.sku < 0 || cols.qty < 0 {
+		return columnIndexes{}, errors.New("input workbook header missing required columns")
+	}
+	return cols, nil
 }
 
 func writeOutput(rows []outputRow, path string) error {
@@ -214,7 +262,7 @@ func writeOutput(rows []outputRow, path string) error {
 			"",
 			"",
 			"",
-			"",
+			row.Country,
 		}
 		if row.HasTracking {
 			values[0] = outboundType
@@ -222,7 +270,6 @@ func writeOutput(rows []outputRow, path string) error {
 			values[3] = row.LogisticsChannel
 			values[6] = orderPlatform
 			values[7] = row.CustomerRef
-			values[12] = row.Country
 		}
 
 		cell := fmt.Sprintf("A%d", i+2)
