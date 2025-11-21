@@ -85,11 +85,16 @@
     }
     .grid {
       display: grid;
-      grid-template-columns: 1.2fr 1fr;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
       gap: 20px;
       padding: 8px 32px 32px;
     }
-    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) {
+      body { padding: 18px 14px; }
+      .shell { border-radius: 20px; }
+      .grid { grid-template-columns: 1fr; padding: 8px 18px 22px; }
+      header { padding: 22px 18px 4px; }
+    }
     .card {
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid var(--border);
@@ -129,6 +134,7 @@
     }
     .input:hover { border-color: rgba(249, 115, 22, 0.6); transform: translateY(-1px); }
     .input input { display: block; margin: 12px auto 0; color: #f8fafc; }
+    .action-row { display: flex; gap: 12px; flex-wrap: wrap; }
     button {
       height: 48px;
       border-radius: 12px;
@@ -141,6 +147,7 @@
       box-shadow: 0 18px 40px rgba(34, 211, 238, 0.28);
       transition: transform 0.18s ease, box-shadow 0.18s ease;
     }
+    button.secondary { background: rgba(255, 255, 255, 0.05); color: #e2e8f0; box-shadow: none; border: 1px solid var(--border); }
     button:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; transform: none; }
     button:not(:disabled):hover { transform: translateY(-1px) scale(1.01); }
     .status {
@@ -149,6 +156,7 @@
       color: var(--muted);
     }
     .status strong { color: #22d3ee; }
+    .hint { color: var(--muted); font-size: 13px; margin-top: 4px; }
     .log {
       display: grid;
       gap: 10px;
@@ -171,6 +179,37 @@
     .log-block li { margin: 6px 0; line-height: 1.5; }
     .pill-row { display: flex; gap: 10px; flex-wrap: wrap; }
     .pill { padding: 8px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); color: #cbd5e1; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; color: #e2e8f0; min-width: 620px; }
+    th, td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+    th { color: #cbd5e1; font-weight: 600; position: sticky; top: 0; background: rgba(15,23,42,0.9); }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 8, 20, 0.78);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 10;
+    }
+    .modal.open { display: flex; }
+    .modal-card {
+      width: min(1100px, 96vw);
+      max-height: 82vh;
+      background: #0b1220;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.4);
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .modal-header h3 { margin: 0; color: #f8fafc; font-size: 17px; }
+    .modal-body { overflow: auto; }
+    .close-btn { background: none; color: #cbd5e1; border: 1px solid var(--border); padding: 8px 12px; border-radius: 10px; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -197,7 +236,11 @@
             <div>拖拽或点击上传</div>
             <input id="file" name="file" type="file" accept=".xlsx" required>
           </div>
-          <button type="submit">转换并下载</button>
+          <div class="hint">支持 .xlsx，单文件上限 25MB。文件仅用于即时转换，处理后即删除。</div>
+          <div class="action-row">
+            <button type="button" id="preview-btn">预览全部</button>
+            <button type="submit" id="download-btn" class="secondary">直接下载</button>
+          </div>
           <div class="status" id="status">准备就绪</div>
         </form>
       </div>
@@ -224,40 +267,121 @@
     </div>
   </div>
 
+  <div class="modal" id="modal" aria-modal="true" role="dialog">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title">预览</h3>
+        <button id="close-modal" class="close-btn">关闭</button>
+      </div>
+      <div class="modal-body">
+        <div style="overflow:auto; max-height: 65vh;">
+          <table id="modal-table"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const form = document.getElementById('upload-form');
     const input = document.getElementById('file');
     const statusEl = document.getElementById('status');
+    const previewBtn = document.getElementById('preview-btn');
+    const downloadBtn = document.getElementById('download-btn');
+    const modal = document.getElementById('modal');
+    const modalTable = document.getElementById('modal-table');
+    const modalTitle = document.getElementById('modal-title');
+    const closeModal = () => modal.classList.remove('open');
+
+    let cachedFile = null;
+    let cachedFilename = null;
+
+    document.getElementById('close-modal').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
     function setStatus(message, accent = false) {
       statusEl.innerHTML = accent ? `<strong>${message}</strong>` : message;
     }
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+    function renderPreview(preview, filename) {
+      if (!preview || !preview.headers || !preview.rows) return;
+      const headers = preview.headers;
+      const rows = preview.rows;
+      modalTitle.textContent = `${filename || '预览'} · ${rows.length} 行`;
+      let html = '<thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
+      html += '<tbody>' + rows.map(r => '<tr>' + headers.map((_, idx) => `<td>${r[idx] || ''}</td>`).join('') + '</tr>').join('') + '</tbody>';
+      modalTable.innerHTML = html;
+      modal.classList.add('open');
+    }
+
+    function blobFromBase64(encoded) {
+      const binary = atob(encoded);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    }
+
+    previewBtn.addEventListener('click', async () => {
       if (!input.files.length) {
         setStatus('请先选择要上传的文件');
         return;
       }
-
-      const btn = form.querySelector('button');
-      btn.disabled = true;
-      setStatus('正在转换，请稍候…', true);
+      previewBtn.disabled = true;
+      downloadBtn.disabled = true;
+      setStatus('正在生成预览…', true);
 
       const formData = new FormData();
       formData.append('file', input.files[0]);
 
       try {
-        const res = await fetch('/api/convert', { method: 'POST', body: formData });
+        const res = await fetch('/api/preview', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } });
         if (!res.ok) {
           const text = await res.text();
-          throw new Error(text || '转换失败');
+          throw new Error(text || '预览失败');
         }
+        const payload = await res.json();
+        cachedFile = payload.file;
+        cachedFilename = payload.filename;
+        renderPreview(payload.preview, payload.filename);
+        setStatus('预览完成，可下载。', true);
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || '预览失败，请稍后重试');
+      } finally {
+        previewBtn.disabled = false;
+        downloadBtn.disabled = false;
+      }
+    });
 
-        const blob = await res.blob();
-        const disposition = res.headers.get('Content-Disposition') || '';
-        const match = disposition.match(/filename="?([^";]+)"?/i);
-        const filename = match ? match[1] : 'Warehouse_output.xlsx';
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!input.files.length && !cachedFile) {
+        setStatus('请先选择要上传的文件');
+        return;
+      }
+      downloadBtn.disabled = true;
+      previewBtn.disabled = true;
+      setStatus('正在打包下载…', true);
+
+      try {
+        let blob;
+        let filename;
+        if (cachedFile) {
+          blob = blobFromBase64(cachedFile);
+          filename = cachedFilename || 'Warehouse_output.xlsx';
+        } else {
+          const formData = new FormData();
+          formData.append('file', input.files[0]);
+          const res = await fetch('/api/convert', { method: 'POST', body: formData });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || '下载失败');
+          }
+          blob = await res.blob();
+          const disposition = res.headers.get('Content-Disposition') || '';
+          const match = disposition.match(/filename="?([^";]+)"?/i);
+          filename = match ? match[1] : 'Warehouse_output.xlsx';
+        }
 
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -267,12 +391,13 @@
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
-        setStatus('转换完成，文件已开始下载。', true);
+        setStatus('已开始下载。', true);
       } catch (err) {
         console.error(err);
-        setStatus(err.message || '转换失败，请稍后重试');
+        setStatus(err.message || '下载失败，请稍后重试');
       } finally {
-        btn.disabled = false;
+        downloadBtn.disabled = false;
+        previewBtn.disabled = false;
       }
     });
   </script>

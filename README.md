@@ -1,6 +1,6 @@
 # WHX – Warehouse Excel Mapper
 
-WHX converts order spreadsheets into the warehouse-ready format used by this project. It reads an `input.xlsx`, maps SKUs via an embedded `map.xlsx`, and writes a new workbook named `Warehouse_<input>.xlsx` next to the source file. Styling is ignored; only data layout matters. Version: **0.2.0** (adds the web UI and Docker deployment).
+WHX converts order spreadsheets into the warehouse-ready format used by this project. It reads an `input.xlsx`, maps SKUs via an embedded `map.xlsx`, and writes a new workbook named `Warehouse_<input>.xlsx` next to the source file. Styling is ignored; only data layout matters. Version: **0.3.0** (full web preview modal, clearer UI, Docker ready).
 
 ## Quick Start
 
@@ -11,8 +11,8 @@ GOCACHE=$(pwd)/.gocache go build -o whx ./cmd/generate
 # Show version
 ./whx --version
 
-# Start the web UI (serves on :8080)
-./whx --serve --addr :8080
+# Start the web UI (serves on :8001)
+./whx --serve --addr :8001
 
 # Run against a file
 ./whx /path/to/input.xlsx
@@ -32,7 +32,7 @@ The output will appear in the same directory as the input, e.g. `examples/1103/W
 | `make run INPUT=examples/1103/input.xlsx` | Executes WHX using the embedded map and writes the warehouse file in place. |
 | `make test` | Runs `go test ./...` with GOCACHE set to `.gocache`, validating all fixtures automatically. |
 | `make fmt` | Applies `gofmt -w` to Go sources. |
-| `make serve` | Runs the web UI locally on `:8080`. |
+| `make serve` | Runs the web UI locally on `:8001`. |
 
 To add a new regression case, create `examples/<name>/input.xlsx` and `output.xlsx`. The test suite discovers these automatically.
 
@@ -41,11 +41,11 @@ To add a new regression case, create `examples/<name>/input.xlsx` and `output.xl
 Build and run the web interface in a container:
 
 ```bash
-docker build -t whx:0.2.0 .
-docker run --rm -p 8080:8080 whx:0.2.0
+docker build -t whx:0.3.0 .
+docker run --rm -p 8001:8001 whx:0.3.0
 ```
 
-Then open `http://localhost:8080` to upload and convert files.
+Then open `http://localhost:8001` to upload and convert files.
 
 ## Notes
 - The SKU mapping workbook is embedded, so distributing the compiled `whx` binary requires no extra files.

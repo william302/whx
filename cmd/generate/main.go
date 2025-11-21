@@ -20,7 +20,7 @@ const (
 	orderPlatform  = "SHOPIFY"
 	outboundType   = "销售出库"
 	outputPrefix   = "Warehouse_"
-	versionString  = "0.2.0"
+	versionString  = "0.3.0"
 )
 
 //go:embed map.xlsx
@@ -39,9 +39,9 @@ type outputRow struct {
 func main() {
 	showVersion := flag.Bool("version", false, "print version and exit")
 	serve := flag.Bool("serve", false, "start web server for uploads")
-	addr := flag.String("addr", ":8080", "listen address in serve mode")
+	addr := flag.String("addr", ":8001", "listen address in serve mode")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [--version] [--serve] [--addr :8080] <path/to/input.xlsx>\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [--version] [--serve] [--addr :8001] <path/to/input.xlsx>\n", filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
 	}
 	flag.Parse()

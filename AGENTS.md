@@ -9,7 +9,7 @@
 - `make run INPUT=examples/1103/input.xlsx` builds and executes the generator with the embedded mapping, writing `Warehouse_input.xlsx` beside the source workbook.
 - `make test` runs `go test ./...` using the repo-local `.gocache`, ensuring cache writes succeed inside the sandbox.
 - `make fmt` applies `gofmt -w cmd/generate/*.go`; run this before committing code changes.
-- `go run ./cmd/generate --version` prints the current CLI version (`0.1.0`).
+- `go run ./cmd/generate --version` prints the current CLI version (`0.3.0`).
 
 ## Coding Style & Naming Conventions
 - Go 1.24+; use standard Go formatting (`gofmt`), camelCase for locals, PascalCase for exported identifiers.
@@ -29,3 +29,4 @@
 ## Agent-Specific Notes
 - Avoid editing fixture `.xlsx` files unless updating authoritative data; regenerate outputs via `go run`/`make run` and inspect diffs carefully.
 - Respect `.gitignore`: do not commit local caches or generated `Warehouse_*.xlsx` files. Use `git status -sb` before pushing to ensure a clean tree.
+- When bumping the version, update all changelog surfaces (server changelog entries, README version text/Docker tags) at the same time.

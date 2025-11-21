@@ -16,4 +16,4 @@ fmt:
 	gofmt -w cmd/generate/*.go
 
 serve:
-	GOCACHE=$(GOCACHE_DIR) $(GO) run ./cmd/generate --serve --addr :8080
+	GOCACHE=$(GOCACHE_DIR) $(GO) run ./cmd/generate --serve --addr :8001
