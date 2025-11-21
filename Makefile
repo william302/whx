@@ -1,7 +1,7 @@
 GO          ?= go
 GOCACHE_DIR ?= $(PWD)/.gocache
 
-.PHONY: test run fmt
+.PHONY: test run fmt serve
 
 test:
 	GOCACHE=$(GOCACHE_DIR) $(GO) test ./...
@@ -14,3 +14,6 @@ endif
 
 fmt:
 	gofmt -w cmd/generate/*.go
+
+serve:
+	GOCACHE=$(GOCACHE_DIR) $(GO) run ./cmd/generate --serve --addr :8080

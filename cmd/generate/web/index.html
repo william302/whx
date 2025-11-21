@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WHX · 仓库表转换</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: radial-gradient(120% 120% at 10% 20%, #ffe7c8, #f0ecff 42%, #e6f6ff 70%);
+      --card: #0f172a;
+      --accent: #f97316;
+      --accent-2: #22d3ee;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --border: rgba(255, 255, 255, 0.08);
+      --radius: 18px;
+      font-family: "Space Grotesk", "Noto Sans SC", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 18px;
+    }
+    .shell {
+      width: min(1100px, 100%);
+      background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(15,23,42,0.85));
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      box-shadow: 0 25px 80px rgba(15, 23, 42, 0.28);
+      overflow: hidden;
+      position: relative;
+    }
+    .glow {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(800px 800px at 15% 30%, rgba(249, 115, 22, 0.16), transparent),
+                  radial-gradient(800px 800px at 80% 10%, rgba(34, 211, 238, 0.18), transparent);
+      pointer-events: none;
+      filter: blur(0px);
+    }
+    header {
+      padding: 28px 32px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .badge {
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      color: #0f172a;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.02em;
+      box-shadow: 0 10px 40px rgba(249, 115, 22, 0.32);
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 3vw, 36px);
+      letter-spacing: -0.01em;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    p.lead {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 620px;
+      line-height: 1.6;
+      font-size: 15px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 20px;
+      padding: 8px 32px 32px;
+    }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      letter-spacing: -0.01em;
+      color: #f8fafc;
+    }
+    .card p {
+      margin: 8px 0 20px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    form {
+      display: grid;
+      gap: 14px;
+    }
+    label {
+      font-weight: 600;
+      font-size: 14px;
+      color: #e2e8f0;
+    }
+    .input {
+      border: 1px dashed rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, 0.02);
+      padding: 36px 18px;
+      border-radius: var(--radius);
+      text-align: center;
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+    .input:hover { border-color: rgba(249, 115, 22, 0.6); transform: translateY(-1px); }
+    .input input { display: block; margin: 12px auto 0; color: #f8fafc; }
+    button {
+      height: 48px;
+      border-radius: 12px;
+      border: none;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      color: #0f172a;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      box-shadow: 0 18px 40px rgba(34, 211, 238, 0.28);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    button:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; transform: none; }
+    button:not(:disabled):hover { transform: translateY(-1px) scale(1.01); }
+    .status {
+      min-height: 20px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .status strong { color: #22d3ee; }
+    .log {
+      display: grid;
+      gap: 10px;
+    }
+    .log-block {
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .log-block header { padding: 0; }
+    .log-block h3 {
+      margin: 0;
+      font-size: 16px;
+      color: #f8fafc;
+      letter-spacing: -0.01em;
+    }
+    .log-block span { color: var(--muted); font-size: 13px; }
+    .log-block ul { margin: 10px 0 0; padding-left: 18px; color: #cbd5e1; }
+    .log-block li { margin: 6px 0; line-height: 1.5; }
+    .pill-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .pill { padding: 8px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); color: #cbd5e1; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="glow" aria-hidden="true"></div>
+    <header>
+      <div>
+        <div class="pill-row">
+          <div class="badge">WHX v{{.Version}}</div>
+          <div class="pill">Warehouse Excel Mapper</div>
+        </div>
+        <h1>一键把上传表格转换为仓库格式</h1>
+        <p class="lead">上传你的 Excel，WHX 会自动映射 SKU 并返回仓库可用的文件。无需安装，浏览器即可完成转换。</p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <h2>上传并下载</h2>
+        <p>仅需一步：选择你的 <strong>.xlsx</strong>，点击转换，即可拿到 <strong>Warehouse_*.xlsx</strong>。文件仅在服务器内存与临时目录中处理，不做持久化存储。</p>
+        <form id="upload-form">
+          <label for="file">选择要转换的文件</label>
+          <div class="input">
+            <div>拖拽或点击上传</div>
+            <input id="file" name="file" type="file" accept=".xlsx" required>
+          </div>
+          <button type="submit">转换并下载</button>
+          <div class="status" id="status">准备就绪</div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>版本与更新</h2>
+        <p>当前版本：<strong>v{{.Version}}</strong>。最新改动和历史记录如下，未来的提升也会在这里同步。</p>
+        <div class="log">
+          {{range .Changelog}}
+          <div class="log-block">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+              <h3>v{{.Version}}</h3>
+              <span>{{.Date}}</span>
+            </div>
+            <ul>
+              {{range .Items}}
+              <li>{{.}}</li>
+              {{end}}
+            </ul>
+          </div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('upload-form');
+    const input = document.getElementById('file');
+    const statusEl = document.getElementById('status');
+
+    function setStatus(message, accent = false) {
+      statusEl.innerHTML = accent ? `<strong>${message}</strong>` : message;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!input.files.length) {
+        setStatus('请先选择要上传的文件');
+        return;
+      }
+
+      const btn = form.querySelector('button');
+      btn.disabled = true;
+      setStatus('正在转换，请稍候…', true);
+
+      const formData = new FormData();
+      formData.append('file', input.files[0]);
+
+      try {
+        const res = await fetch('/api/convert', { method: 'POST', body: formData });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || '转换失败');
+        }
+
+        const blob = await res.blob();
+        const disposition = res.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="?([^";]+)"?/i);
+        const filename = match ? match[1] : 'Warehouse_output.xlsx';
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setStatus('转换完成，文件已开始下载。', true);
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || '转换失败，请稍后重试');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
