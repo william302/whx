@@ -3,7 +3,7 @@ version: "3.9"
 services:
   whx:
     build: .
-    image: whx:0.3.0
+    image: whx:0.4.0
     ports:
       - "8001:8001"
     command: ["--serve", "--addr", ":8001"]

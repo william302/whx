@@ -28,6 +28,14 @@ type changelogEntry struct {
 
 var changelog = []changelogEntry{
 	{
+		Version: "0.4.0",
+		Date:    "2024-11",
+		Items: []string{
+			"更新 SKU 映射至 2024-11-27 版",
+			"命令行与网页版本号同步到 0.4.0",
+		},
+	},
+	{
 		Version: "0.3.0",
 		Date:    "2024-06",
 		Items: []string{

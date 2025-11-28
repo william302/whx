@@ -1,6 +1,6 @@
 # WHX – Warehouse Excel Mapper
 
-WHX converts order spreadsheets into the warehouse-ready format used by this project. It reads an `input.xlsx`, maps SKUs via an embedded `map.xlsx`, and writes a new workbook named `Warehouse_<input>.xlsx` next to the source file. Styling is ignored; only data layout matters. Version: **0.3.0** (full web preview modal, clearer UI, Docker ready).
+ WHX converts order spreadsheets into the warehouse-ready format used by this project. It reads an `input.xlsx`, maps SKUs via an embedded `map.xlsx`, and writes a new workbook named `Warehouse_<input>.xlsx` next to the source file. Styling is ignored; only data layout matters. Version: **0.4.0** (updated SKU mapping, Docker image tag bump).
 
 ## Quick Start
 
@@ -41,8 +41,8 @@ To add a new regression case, create `examples/<name>/input.xlsx` and `output.xl
 Build and run the web interface in a container:
 
 ```bash
-docker build -t whx:0.3.0 .
-docker run --rm -p 8001:8001 whx:0.3.0
+docker build -t whx:0.4.0 .
+docker run --rm -p 8001:8001 whx:0.4.0
 ```
 
 Then open `http://localhost:8001` to upload and convert files.

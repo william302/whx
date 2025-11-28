@@ -20,7 +20,7 @@ const (
 	orderPlatform  = "SHOPIFY"
 	outboundType   = "销售出库"
 	outputPrefix   = "Warehouse_"
-	versionString  = "0.3.0"
+	versionString  = "0.4.0"
 )
 
 //go:embed map.xlsx
