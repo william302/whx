@@ -33,6 +33,7 @@ The output will appear in the same directory as the input, e.g. `examples/1103/W
 | `make test` | Runs `go test ./...` with GOCACHE set to `.gocache`, validating all fixtures automatically. |
 | `make fmt` | Applies `gofmt -w` to Go sources. |
 | `make serve` | Runs the web UI locally on `:8001`. |
+| `make push VERSION=0.4.0` | Builds a linux/amd64 image tagged `whx:<version>` and pushes `swr.cn-north-4.myhuaweicloud.com/yogeeai/whx:<version>`. |
 
 To add a new regression case, create `examples/<name>/input.xlsx` and `output.xlsx`. The test suite discovers these automatically.
 
